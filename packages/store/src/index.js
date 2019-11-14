@@ -14,6 +14,7 @@ import drizzleStatusReducer from './drizzleStatus/drizzleStatusReducer'
 import transactionsReducer from './transactions/transactionsReducer'
 import transactionStackReducer from './transactions/transactionStackReducer'
 import web3Reducer from './web3/web3Reducer'
+import waveletReducer from './wavelet/waveletReducer'
 
 const drizzleReducers = {
   accounts: accountsReducer,
@@ -23,7 +24,8 @@ const drizzleReducers = {
   drizzleStatus: drizzleStatusReducer,
   transactions: transactionsReducer,
   transactionStack: transactionStackReducer,
-  web3: web3Reducer
+  web3: web3Reducer,
+  wavelet: waveletReducer
 }
 
 // Sagas

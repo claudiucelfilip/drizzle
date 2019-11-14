@@ -58,41 +58,31 @@ function createTxChannel ({
   contractName,
   stackTempKey
 }) {
-  var persistTxHash
-
+  
   return eventChannel(emit => {
-    const txPromiEvent = txObject
+    txObject
       .send(sendArgs)
-      .on('transactionHash', txHash => {
-        persistTxHash = txHash
-
-        emit({ type: 'TX_BROADCASTED', txHash, stackId })
+      .then(response => {
+        emit({ type: 'TX_BROADCASTED', txHash: response.tx_id, stackId })
         emit({ type: 'CONTRACT_SYNC_IND', contractName })
-      })
-      .on('confirmation', (confirmationNumber, receipt) => {
+
         emit({
           type: 'TX_CONFIRMAITON',
-          confirmationReceipt: receipt,
-          txHash: persistTxHash
+          confirmationReceipt: response,
+          txHash: response.tx_id
         })
-      })
-      .on('receipt', receipt => {
-        emit({ type: 'TX_SUCCESSFUL', receipt: receipt, txHash: persistTxHash })
+      
+        emit({ type: 'TX_SUCCESSFUL', receipt: response, txHash: response.tx_id })
         emit(END)
       })
-      .on('error', (error, receipt) => {
+      .catch((error) => {
         console.error(error)
-        console.error(receipt)
+        // console.error(receipt)
 
         emit({ type: 'TX_ERROR', error: error, stackTempKey })
         emit(END)
-      })
-
-    const unsubscribe = () => {
-      txPromiEvent.off()
-    }
-
-    return unsubscribe
+      });
+    return () => {};
   })
 }
 
@@ -107,26 +97,27 @@ function * callSendContractTx ({
   // Check for type of object and properties indicative of call/send options.
   if (args.length) {
     const finalArg = args.length > 1 ? args[args.length - 1] : args[0]
-    var sendArgs = {}
-    var finalArgTest = false
+    var sendArgs = finalArg
+    // var finalArgTest = false
 
-    if (typeof finalArg === 'object') {
-      var finalArgTest = yield call(isSendOrCallOptions, finalArg)
-    }
+    // if (typeof finalArg === 'object') {
+    //   var finalArgTest = yield call(isSendOrCallOptions, finalArg)
+    // }
 
-    if (finalArgTest) {
-      sendArgs = finalArg
+    // if (finalArgTest) {
+    //   sendArgs = finalArg
 
-      args.length > 1 ? delete args[args.length - 1] : delete args[0]
-      args.length = args.length - 1
-    }
+    //   args.length > 1 ? delete args[args.length - 1] : delete args[0]
+    //   args.length = args.length - 1
+    // }
   }
 
   // Get name to mark as desynchronized on tx creation
   const contractName = contract.contractName
-
+  
   // Create the transaction object and execute the tx.
   const txObject = yield call(contract.methods[fnName], ...args)
+  
   const txChannel = yield call(createTxChannel, {
     txObject,
     stackId,
@@ -134,7 +125,6 @@ function * callSendContractTx ({
     contractName,
     stackTempKey
   })
-
   try {
     while (true) {
       var event = yield take(txChannel)
@@ -161,7 +151,6 @@ function * callCallContractFn ({
   if (sync) {
     return
   }
-
   // Check for type of object and properties indicative of call/send options.
   if (args.length) {
     const finalArg = args.length > 1 ? args[args.length - 1] : args[0]
@@ -179,13 +168,10 @@ function * callCallContractFn ({
       args.length = args.length - 1
     }
   }
-
   // Create the transaction object and execute the call.
   const txObject = yield call(contract.methods[fnName], ...args)
-
   try {
     const callResult = yield call(txObject.call, callArgs)
-
     var dispatchArgs = {
       name: contract.contractName,
       variable: contract.abi[fnIndex].name,
@@ -194,7 +180,6 @@ function * callCallContractFn ({
       value: callResult,
       fnIndex: fnIndex
     }
-
     yield put({ type: 'GOT_CONTRACT_VAR', ...dispatchArgs })
   } catch (error) {
     console.error(error)
@@ -211,6 +196,8 @@ function * callCallContractFn ({
     yield put({ type: 'ERROR_CONTRACT_VAR', ...errorArgs })
   }
 }
+
+
 
 /*
  * Sync Contract
@@ -231,21 +218,22 @@ function * callSyncContract (action) {
 
   // Iterate over functions and hashes
   for (var fnName in contractFnsState) {
+
     for (var argsHash in contractFnsState[fnName]) {
       const fnIndex = contractFnsState[fnName][argsHash].fnIndex
       const args = contractFnsState[fnName][argsHash].args
-
-      // Pull args and call fn for each given function
-      // keeping for pre-v1.1.5 compatibility with CALL_CONTRACT_FN event.
-      yield put({
-        type: 'CALL_CONTRACT_FN',
-        contract,
-        fnName,
-        fnIndex,
-        args,
-        argsHash,
-        sync: true
-      })
+  
+      // // Pull args and call fn for each given function
+      // // keeping for pre-v1.1.5 compatibility with CALL_CONTRACT_FN event.
+      // yield put({
+      //   type: 'CALL_CONTRACT_FN',
+      //   contract,
+      //   fnName,
+      //   fnIndex,
+      //   args,
+      //   argsHash,
+      //   sync: true
+      // })
       yield call(callCallContractFn, {
         contract,
         fnName,
@@ -271,9 +259,11 @@ function isSendOrCallOptions (options) {
   return false
 }
 
+
 function * contractsSaga () {
   yield takeEvery('SEND_CONTRACT_TX', callSendContractTx)
   yield takeEvery('CALL_CONTRACT_FN', callCallContractFn)
+  
   yield takeEvery('CONTRACT_SYNCING', callSyncContract)
   yield takeEvery('LISTEN_FOR_EVENT', callListenForContractEvent)
 }

@@ -176,8 +176,41 @@ function * processBlock ({ block, drizzle, web3, syncAlways }) {
   }
 }
 
+function* pollConsensus({ contract }) {
+  return eventChannel(emit => {
+      contract.wavelet.pollConsensus({
+          onRoundEnded: async data => {
+              await contract.contract.fetchAndPopulateMemoryPages();
+              emit({ type: "CONTRACT_SYNCING", contract });
+          }
+      });
+      const unsubscribe = () => {
+          wavelet.close();
+      };
+
+      return unsubscribe;
+  });
+}
+
+function* callPollConsensusChannel({ contract }) {
+  const blockChannel = yield call(pollConsensus, {
+      contract
+  });
+
+  try {
+      while (true) {
+          var event = yield take(blockChannel);
+          yield put(event);
+      }
+  } finally {
+      blockChannel.close();
+  }
+}
+
+
 function * blocksSaga () {
   // Block Subscriptions
+  yield takeLatest("CONSENSUS_LISTENING", callPollConsensusChannel);
   yield takeLatest('BLOCKS_LISTENING', callCreateBlockChannel)
   yield takeEvery('BLOCK_RECEIVED', processBlockHeader)
 

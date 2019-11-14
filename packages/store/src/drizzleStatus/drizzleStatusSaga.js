@@ -2,6 +2,7 @@ import { call, put, select, takeLatest } from 'redux-saga/effects'
 
 // Initialization Functions
 import { initializeWeb3, getNetworkId } from '../web3/web3Saga'
+import { initializeWavelet } from '../wavelet/waveletSaga'
 import { getAccounts } from '../accounts/accountsSaga'
 import { getAccountBalances } from '../accountBalances/accountBalancesSaga'
 
@@ -14,6 +15,9 @@ export function * initializeDrizzle (action) {
     // Initialize web3 and get the current network ID.
     const web3 = yield call(initializeWeb3, options.web3)
     drizzle.web3 = web3
+
+    const wavelet = yield call(initializeWavelet, options.wavelet)
+    drizzle.wavelet = wavelet;
 
     // Client may opt out of connecting their account to the dapp Guard against
     // further web3 interaction, and note web3 will be undefined
@@ -29,20 +33,20 @@ export function * initializeDrizzle (action) {
         yield put({ type: NETWORK_MISMATCH, networkId })
       } else {
         // Get initial accounts list and balances.
-        yield call(getAccounts, { web3 })
-        yield call(getAccountBalances, { web3 })
+        yield call(getAccounts, { wavelet })
+        yield call(getAccountBalances, { wavelet })
 
         // Instantiate contracts passed through via options.
         for (var i = 0; i < options.contracts.length; i++) {
           var contractConfig = options.contracts[i]
-          var events = []
-          var contractName = contractConfig.contractName
+          // var events = []
+          // var contractName = contractConfig.contractName
 
-          if (contractName in options.events) {
-            events = options.events[contractName]
-          }
+          // if (contractName in options.events) {
+          //   events = options.events[contractName]
+          // }
 
-          yield call([drizzle, drizzle.addContract], contractConfig, events)
+          yield call([drizzle, drizzle.addContract], contractConfig)
         }
 
         const syncAlways = options.syncAlways
