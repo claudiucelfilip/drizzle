@@ -28,7 +28,9 @@ class AccountData extends Component {
       : "Wei";
 
     // Convert to given units.
-    if (this.props.units && typeof balance !== "undefined") {
+    if (this.props.units === "perls") {
+      balance = balance / Math.pow(10, 9);
+    } else if (this.props.units && typeof balance !== "undefined") {
       balance = this.context.drizzle.web3.utils.fromWei(
         balance,
         this.props.units,

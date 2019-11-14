@@ -12,9 +12,9 @@ export function * getAccountBalances (action) {
     for (var i in accounts) {
       var account = accounts[i]
       var account = yield call([wavelet, wavelet.getAccount], account)
-      var accountBalance = account.balance
-
-      yield put({ type: 'ACCOUNT_BALANCE_FETCHED', account, accountBalance })
+      var accountBalance = account.balance + ""
+      
+      yield put({ type: 'ACCOUNT_BALANCE_FETCHED', account: account.public_key, accountBalance })
     }
   } catch (error) {
     yield put({ type: 'ACCOUNT_BALANCE_FAILED', error })
