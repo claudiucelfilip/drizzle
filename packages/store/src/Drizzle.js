@@ -21,6 +21,7 @@ var isEnvReadyPromise = new Promise((resolve, reject) => {
   if (hasDocument && document.readyState === `complete`) {
     return resolve()
   }
+  return resolve();
 })
 
 export const getOrCreateWeb3Contract = (store, contractConfig, web3) => {
