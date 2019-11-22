@@ -2,7 +2,7 @@ import { call, put, select, takeLatest } from 'redux-saga/effects'
 
 export function * getAccountBalances (action) {
   const accounts = yield select(getAccountsState)
-  const web3 = action.web3
+  const wavelet = action.wavelet
 
   if (!accounts) {
     console.error('No accounts found while attempting to fetch balances!')
@@ -11,9 +11,10 @@ export function * getAccountBalances (action) {
   try {
     for (var i in accounts) {
       var account = accounts[i]
-      var accountBalance = yield call(web3.eth.getBalance, account)
-
-      yield put({ type: 'ACCOUNT_BALANCE_FETCHED', account, accountBalance })
+      var account = yield call([wavelet, wavelet.getAccount], account)
+      var accountBalance = account.balance + ""
+      
+      yield put({ type: 'ACCOUNT_BALANCE_FETCHED', account: account.public_key, accountBalance })
     }
   } catch (error) {
     yield put({ type: 'ACCOUNT_BALANCE_FAILED', error })

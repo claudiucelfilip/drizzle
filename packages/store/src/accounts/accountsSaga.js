@@ -7,11 +7,13 @@ import { getAccountBalances } from '../accountBalances/accountBalancesSaga'
  */
 
 export function * getAccounts (action) {
-  const web3 = action.web3
+  const wavelet = action.wavelet
 
   try {
-    const accounts = yield call(web3.eth.getAccounts)
-
+    
+    const info = yield call([wavelet, wavelet.getNodeInfo])
+    const accounts = info.peers.map(item => item.public_key)
+    
     if (!accounts) {
       throw 'No accounts found!'
     }

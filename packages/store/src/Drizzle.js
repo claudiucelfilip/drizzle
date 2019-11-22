@@ -2,6 +2,10 @@ import { generateStore } from './generateStore'
 import defaultOptions from './defaultOptions'
 import merge from './mergeOptions'
 import DrizzleContract from './DrizzleContract'
+import WaveletContract from './WaveletContract'
+import { Wavelet } from 'wavelet-client'
+
+
 
 // Load as promise so that async Drizzle initialization can still resolve
 var isEnvReadyPromise = new Promise((resolve, reject) => {
@@ -42,59 +46,77 @@ export const getOrCreateWeb3Contract = (store, contractConfig, web3) => {
 }
 
 class Drizzle {
-  constructor (givenOptions, store) {
-    const options = merge(defaultOptions, givenOptions)
+    constructor(givenOptions, store) {
+        const options = merge(defaultOptions, givenOptions);
+        // Variables
+        this.contracts = {};
+        this.contractList = [];
+        this.options = options;
+        this.store = store || this.generateStore(options);
+        this.web3 = {};
 
-    // Variables
-    this.contracts = {}
-    this.contractList = []
-    this.options = options
-    this.store = store || this.generateStore(options)
-    this.web3 = {}
+        this.wallet = Wavelet.loadWalletFromPrivateKey(options.wavelet.privateKey);
+        this.wavelet = {};
 
-    this.loadingContract = {}
+        this.loadingContract = {};
 
-    // Wait for window load event in case of injected web3.
-    isEnvReadyPromise.then(() => {
-      // Begin Drizzle initialization.
-      this.store.dispatch({
-        type: 'DRIZZLE_INITIALIZING',
-        drizzle: this,
-        options
-      })
-    })
-  }
-
-  addContract (contractConfig, events = []) {
-    const web3Contract = getOrCreateWeb3Contract(
-      this.store,
-      contractConfig,
-      this.web3
-    )
-    const drizzleContract = new DrizzleContract(
-      web3Contract,
-      this.web3,
-      contractConfig.contractName,
-      this.store,
-      events
-    )
-
-    if (this.contracts[drizzleContract.contractName]) {
-      throw new Error(
-        `Contract already exists: ${drizzleContract.contractName}`
-      )
+        // Wait for window load event in case of injected web3.
+        isEnvReadyPromise.then(() => {
+            // Begin Drizzle initialization.
+            this.store.dispatch({
+                type: "DRIZZLE_INITIALIZING",
+                drizzle: this,
+                options
+            });
+        });
     }
 
-    this.store.dispatch({ type: 'CONTRACT_INITIALIZING', contractConfig })
+    async addContract(contractAddress, events = []) {
+        if (this.contracts[contractAddress]) {
+            throw new Error(`Contract already exists: ${contractAddress}`);
+        }
 
-    this.contracts[drizzleContract.contractName] = drizzleContract
-    this.contractList.push(drizzleContract)
+        const waveletContract = new WaveletContract(
+            this.wavelet,
+            this.wallet,
+            contractAddress,
+            this.store
+        );
 
-    this.store.dispatch({
-      type: 'CONTRACT_INITIALIZED',
-      name: contractConfig.contractName
-    })
-  }
+        await waveletContract.init();
+
+        // const web3Contract = getOrCreateWeb3Contract(
+        //   this.store,
+        //   contractConfig,
+        //   this.web3
+        // )
+        // const drizzleContract = new DrizzleContract(
+        //   web3Contract,
+        //   this.web3,
+        //   contractConfig.contractName,
+        //   this.store,
+        //   events
+        // )
+
+        this.store.dispatch({
+            type: "CONSENSUS_LISTENING",
+            contract: waveletContract
+        });
+
+        this.store.dispatch({
+            type: "CONTRACT_INITIALIZING",
+            contractConfig: waveletContract
+        });
+
+        this.contracts[contractAddress] = waveletContract;
+        this.contractList.push(waveletContract);
+
+        this.store.dispatch({
+            type: "CONTRACT_INITIALIZED",
+            name: contractAddress
+        });
+
+    }
 
   deleteContract (contractName) {
     // Deleting a contract means removing it from this instance's
